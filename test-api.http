@@ -1,0 +1,113 @@
+### Bingo Backend API - Test File
+### Usa con la extensión REST Client de VS Code
+
+### ======================================
+### BINGOS - Gestión
+### ======================================
+
+### 1. Listar todos los bingos
+GET http://localhost:3000/api/bingos
+Content-Type: application/json
+
+### 2. Listar bingos con paginación
+GET http://localhost:3000/api/bingos?page=1&limit=5
+Content-Type: application/json
+
+### 3. Listar bingos con filtro por estado
+GET http://localhost:3000/api/bingos?status=ACTIVE
+Content-Type: application/json
+
+### 4. Obtener un bingo específico
+@bingoId = cmubycgbx00008liz1o86qg4m
+GET http://localhost:3000/api/bingos/{{bingoId}}
+Content-Type: application/json
+
+### 5. Crear un nuevo bingo
+POST http://localhost:3000/api/bingos
+Content-Type: application/json
+
+{
+  "name": "Bingo Año Nuevo 2027",
+  "description": "Bingo especial de Año Nuevo",
+  "drawDate": "2027-01-01T00:00:00Z",
+  "price": 15000,
+  "status": "DRAFT"
+}
+
+### 6. Actualizar un bingo
+@bingoId = cmubycgbx00008liz1o86qg4m
+PATCH http://localhost:3000/api/bingos/{{bingoId}}
+Content-Type: application/json
+
+{
+  "status": "ACTIVE",
+  "price": 12000
+}
+
+### 7. Eliminar un bingo (cuidado!)
+@bingoId = cmubycgbx00008liz1o86qg4m
+DELETE http://localhost:3000/api/bingos/{{bingoId}}
+Content-Type: application/json
+
+### ======================================
+### CARTONES - Gestión
+### ======================================
+
+### 8. Listar cartones de un bingo
+@bingoId = cmubycgbx00008liz1o86qg4m
+GET http://localhost:3000/api/bingos/{{bingoId}}/cards
+Content-Type: application/json
+
+### 9. Listar cartones con paginación
+@bingoId = cmubycgbx00008liz1o86qg4m
+GET http://localhost:3000/api/bingos/{{bingoId}}/cards?page=1&limit=5
+Content-Type: application/json
+
+### 10. Listar cartones solo DISPONIBLES
+@bingoId = cmubycgbx00008liz1o86qg4m
+GET http://localhost:3000/api/bingos/{{bingoId}}/cards?status=AVAILABLE
+Content-Type: application/json
+
+### 11. Buscar cartones por número
+@bingoId = cmubycgbx00008liz1o86qg4m
+GET http://localhost:3000/api/bingos/{{bingoId}}/cards?search=14600001
+Content-Type: application/json
+
+### 12. Obtener un cartón específico
+@cardId = cmubycgc900028liz9uih26m3
+GET http://localhost:3000/api/cards/{{cardId}}
+Content-Type: application/json
+
+### ======================================
+### EJEMPLOS DE RESPUESTA
+### ======================================
+
+### Respuesta esperada: GET /api/bingos
+# {
+#   "data": [
+#     {
+#       "id": "cmubycgbx00008liz1o86qg4m",
+#       "name": "Bingo Navidad 2026",
+#       "description": "Bingo especial de Navidad con premios increíbles",
+#       "drawDate": "2026-12-25T00:00:00.000Z",
+#       "price": 10000,
+#       "status": "ACTIVE",
+#       "createdAt": "2026-09-22T00:44:56.110Z",
+#       "updatedAt": "2026-09-22T00:44:56.110Z"
+#     }
+#   ],
+#   "meta": {
+#     "page": 1,
+#     "limit": 10,
+#     "total": 1,
+#     "pages": 1
+#   }
+# }
+
+### Respuesta esperada: GET /api/cards/:id
+# {
+#   "id": "cmubycgc900028liz9uih26m3",
+#   "cardNumber": "14600001",
+#   "status": "AVAILABLE",
+#   "numbers": [2, 5, 24, 39, 42, 46, 51, 53, 72, 86]
+# }

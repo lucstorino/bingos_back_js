@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum BingoStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  CLOSED
+  FINISHED
+  CANCELLED
+}
+
+enum CardStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  MERCADO_PAGO
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+model Bingo {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  drawDate    DateTime
+  price       Decimal  @db.Decimal(10, 2)
+  status      BingoStatus @default(DRAFT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  cards    BingoCard[]
+  prizes   Prize[]
+  orders   Order[]
+  winners  Winner[]
+
+  @@index([status])
+  @@index([drawDate])
+}
+
+model BingoCard {
+  id         String   @id @default(cuid())
+  bingoId    String
+  cardNumber String
+  status     CardStatus @default(AVAILABLE)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Unique constraint: card number must be unique per bingo
+  @@unique([bingoId, cardNumber])
+  @@index([bingoId, status])
+  @@index([status])
+
+  // Relations
+  bingo       Bingo @relation(fields: [bingoId], references: [id], onDelete: Cascade)
+  cardNumbers CardNumber[]
+  reservation Reservation?
+  order       Order?
+}
+
+model CardNumber {
+  id     String @id @default(cuid())
+  cardId String
+  number Int
+
+  @@unique([cardId, number])
+  @@index([cardId])
+
+  // Relations
+  card BingoCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  dni       String   @unique
+  address   String
+  phone     String
+  email     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dni])
+  @@index([email])
+
+  // Relations
+  orders Order[]
+}
+
+model Reservation {
+  id        String   @id @default(cuid())
+  cardId    String   @unique
+  orderId   String?  @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([cardId])
+  @@index([expiresAt])
+
+  // Relations
+  card  BingoCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id])
+}
+
+model Order {
+  id         String   @id @default(cuid())
+  customerId String
+  bingoId    String
+  cardId     String   @unique
+  amount     Decimal  @db.Decimal(10, 2)
+  status     OrderStatus @default(PENDING)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([customerId, status])
+  @@index([bingoId, status])
+  @@index([status])
+
+  // Relations
+  customer    Customer @relation(fields: [customerId], references: [id])
+  bingo       Bingo @relation(fields: [bingoId], references: [id])
+  card        BingoCard @relation(fields: [cardId], references: [id])
+  payment     Payment?
+  reservation Reservation?
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  orderId    String   @unique
+  provider   PaymentProvider
+  externalId String?
+  amount     Decimal  @db.Decimal(10, 2)
+  status     PaymentStatus @default(PENDING)
+  paidAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([externalId])
+  @@index([status])
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Prize {
+  id          String   @id @default(cuid())
+  bingoId     String
+  name        String
+  description String?
+  amount      Decimal? @db.Decimal(15, 2)
+  position    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bingoId, position])
+  @@index([bingoId])
+
+  // Relations
+  bingo   Bingo @relation(fields: [bingoId], references: [id], onDelete: Cascade)
+  winners Winner[]
+}
+
+model Winner {
+  id          String   @id @default(cuid())
+  bingoId     String
+  prizeId     String
+  cardNumber  String
+  winnerName  String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([bingoId, prizeId])
+
+  // Relations
+  bingo Bingo @relation(fields: [bingoId], references: [id], onDelete: Cascade)
+  prize Prize @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+}
