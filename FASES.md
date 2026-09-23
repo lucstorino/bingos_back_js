@@ -2,7 +2,10 @@
 
 Este documento describe las fases de desarrollo del backend Bingo.
 
-## ✅ FASE 1: COMPLETADA
+## ✅ FASE 1: Infraestructura Base + BD + Módulos Lectura
+
+### Descripción
+Configuración completa del proyecto, infraestructura y primeros módulos de consulta.
 
 ### Objetivos
 - [x] Crear proyecto NestJS con TypeScript
@@ -11,6 +14,12 @@ Este documento describe las fases de desarrollo del backend Bingo.
 - [x] Crear estructura de directorios modular
 - [x] Configuración global (CORS, validación, etc.)
 - [x] Variables de entorno (.env, .env.example)
+- [x] Ejecutar migraciones de base de datos
+- [x] Cargar datos de prueba
+- [x] Crear DTOs para Bingo
+- [x] Crear BingosService y BingosController
+- [x] Implementar endpoints GET (Bingos y Cartones)
+- [x] Implementar paginación en cartones
 
 ### Archivos Creados
 ```
@@ -27,24 +36,20 @@ Este documento describe las fases de desarrollo del backend Bingo.
 ✓ tsconfig.json
 ✓ README.md
 ✓ dist/ (compilado)
+
+✓ src/bingos/ (módulo completo)
+✓ src/cards/ (módulo lectura)
 ```
 
-### Próximos Pasos
-1. Levantar PostgreSQL: `docker compose up -d`
-2. Crear base de datos: `npm run prisma:migrate`
-3. Cargar datos de prueba: `npm run prisma:seed`
+### Endpoints Implementados
+```
+GET    /api/bingos
+GET    /api/bingos/:id
+GET    /api/bingos/:id/cards
+GET    /api/bingos/:id/cards?page=1&limit=50&status=AVAILABLE
+```
 
----
-
-## 📋 FASE 2: Modelo de Datos y Migraciones
-
-### Objetivos
-- [ ] Ejecutar primera migración
-- [ ] Verificar tablas en PostgreSQL
-- [ ] Ejecutar seed
-- [ ] Validar datos iniciales
-
-### Comandos
+### Verificación
 ```bash
 # Levantar PostgreSQL
 docker compose up -d
@@ -55,81 +60,81 @@ npm run prisma:migrate
 # Cargar datos de prueba
 npm run prisma:seed
 
-# Ver datos visualmente
-npm run prisma:studio
+# Iniciar servidor
+npm run start:dev
+
+# Probar endpoints
+curl http://localhost:3000/api/bingos
+curl http://localhost:3000/api/bingos/1
+curl "http://localhost:3000/api/bingos/1/cards?page=1&limit=10"
 ```
 
 ---
 
-## 🎯 FASE 3: Módulo Bingos + Cartones (Consulta)
+## 📤 FASE 2: Importación Masiva de Cartones (CSV) ✅
+
+### Descripción
+Parser CSV robusto con validaciones masivas e importación por transacciones.
 
 ### Objetivos
-- [ ] Crear DTOs para Bingo
-- [ ] Crear BingosService
-- [ ] Crear BingosController
-- [ ] Implementar endpoints GET
-- [ ] Implementar paginación en cartones
+- [x] Crear parser CSV
+- [x] Validar datos masivos
+- [x] Implementar transacciones
+- [x] Crear endpoint de importación
 
-### Endpoints a Crear
-```
-GET    /api/bingos
-GET    /api/bingos/:id
-GET    /api/bingos/:id/cards
-GET    /api/bingos/:id/cards?page=1&limit=50&status=AVAILABLE
-```
-
-### Módulos Necesarios
-```
-bingos/
-├── bingos.module.ts
-├── bingos.service.ts
-├── bingos.controller.ts
-└── dto/
-    ├── create-bingo.dto.ts
-    ├── update-bingo.dto.ts
-    └── bingo-response.dto.ts
-
-cards/
-├── cards.module.ts
-├── cards.service.ts
-├── cards.controller.ts
-└── dto/
-    ├── card-response.dto.ts
-    └── paginated-response.dto.ts
-```
-
----
-
-## 📤 FASE 4: Importación Masiva de Cartones (CSV)
-
-### Objetivos
-- [ ] Crear parser CSV
-- [ ] Validar datos masivos
-- [ ] Implementar transacciones
-- [ ] Crear endpoint de importación
-
-### Endpoint
+### Endpoint Creado
 ```
 POST /api/bingos/:bingoId/cards/import
 Content-Type: multipart/form-data
 ```
 
-### Módulos Necesarios
+### Archivos Creados
 ```
-cards/
-└── csv-import.service.ts
+✓ src/cards/csv-import.service.ts
+✓ src/cards/dto/import-cards.dto.ts
+✓ ejemplos-csv/cartones_ejemplo.csv
+✓ FASE2_CSV_IMPORT.md (documentación)
 ```
 
-### Validaciones
-- ✓ Columnas correctas
-- ✓ Exactamente 10 números
-- ✓ Números 1-90
-- ✓ Sin duplicados
-- ✓ Soporte para ~20.000 registros
+### Validaciones Implementadas
+- ✅ Columnas correctas (cardNumber, numbers)
+- ✅ Exactamente 10 números por cartón
+- ✅ Números entre 1-90
+- ✅ Sin duplicados en el cartón
+- ✅ Sin duplicados por bingo
+- ✅ Soporte para ~20.000 registros
+- ✅ Transacciones por lotes de 1000
+
+### Response
+```json
+{
+  "total": 100,
+  "imported": 98,
+  "failed": 2,
+  "errors": [
+    { "row": 5, "cardNumber": "14600005", "error": "..." },
+    { "row": 12, "cardNumber": "14600012", "error": "..." }
+  ],
+  "importedAt": "2024-03-15T10:30:00Z"
+}
+```
+
+### Testing
+```bash
+# 1. Crear bingo
+POST /api/bingos { ... }
+
+# 2. Importar CSV
+POST /api/bingos/{bingoId}/cards/import
+# (adjuntar archivo cartones_ejemplo.csv)
+
+# 3. Verificar
+GET /api/bingos/{bingoId}/cards?page=1&limit=10
+```
 
 ---
 
-## 👥 FASE 5: Clientes, Reservas y Órdenes
+## 👥 FASE 3: Clientes, Reservas y Órdenes
 
 ### Objetivos
 - [ ] Crear módulo Customers
@@ -179,7 +184,7 @@ orders/
 
 ---
 
-## 💳 FASE 6: Mercado Pago + Webhook
+## 💳 FASE 4: Mercado Pago + Webhook
 
 ### Objetivos
 - [ ] Crear MercadoPagoService
@@ -218,7 +223,7 @@ Payment APPROVED + Order PAID + Card SOLD
 
 ---
 
-## 📄 FASE 7: PDF y Email
+## 📄 FASE 5: PDF y Email
 
 ### Objetivos
 - [ ] Crear generador PDF
@@ -241,7 +246,7 @@ Después de `Payment APPROVED` → Generar PDF → Enviar Email
 
 ---
 
-## 🏆 FASE 8: Premios y Ganadores
+## 🏆 FASE 6: Premios y Ganadores
 
 ### Objetivos
 - [ ] Crear módulo Prizes
@@ -282,7 +287,7 @@ winners/
 
 ---
 
-## 🔐 FASE 9: Autenticación Administrativa
+## 🔐 FASE 7: Autenticación Administrativa
 
 ### Objetivos
 - [ ] Crear módulo Auth
@@ -322,7 +327,7 @@ common/
 
 ---
 
-## 🧪 FASE 10: Tests, Swagger y Documentación
+## 🧪 FASE 8: Tests, Swagger y Documentación
 
 ### Objetivos
 - [ ] Tests unitarios
@@ -344,51 +349,62 @@ npm install --save-dev @nestjs/testing jest ts-jest @types/jest
 ## 📊 ESTADO ACTUAL
 
 ```
-✅ FASE 1: 100%
+✅ FASE 1: 100% - Infraestructura + BD + Módulos Lectura + ABM
    - Proyecto NestJS creado
-   - Prisma configurado
+   - Prisma configurado con migraciones
    - Docker Compose listo
-   - Compilación exitosa
+   - Datos de prueba cargados
+   - Módulos Bingos y Cartones con ABM completo
+   - Endpoints GET funcionando
+   - Paginación implementada
 
-⏳ FASE 2: 0%
-   - Próxima: Ejecutar migraciones
+✅ FASE 2: 100% - Importación CSV
+   - Parser CSV robusto
+   - Validaciones masivas
+   - Transacciones por lotes
+   - Endpoint POST /bingos/:bingoId/cards/import
+   - Manejo de errores con reporte
 
-⏳ FASE 3-10: Por comenzar
+⏳ FASE 3-8: Por comenzar
 ```
 
 ---
 
 ## 🚀 Instrucciones para Continuar
 
-### Próximos pasos inmediatos:
+### Verificar FASE 2
 
-1. **Instalar Docker** (si aún no está instalado)
-   - Descargar de: https://www.docker.com/products/docker-desktop
+```bash
+# 1. Iniciar servidor
+npm run start:dev
 
-2. **Levantar PostgreSQL**
-   ```bash
-   docker compose up -d
-   ```
+# 2. Crear un bingo
+curl -X POST http://localhost:3000/api/bingos \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Bingo Test",
+    "description": "Test",
+    "drawDate": "2024-03-15T20:00:00Z",
+    "price": 100
+  }'
 
-3. **Ejecutar migraciones**
-   ```bash
-   npm run prisma:migrate
-   ```
+# 3. Importar CSV
+curl -X POST http://localhost:3000/api/bingos/{bingoId}/cards/import \
+  -F "file=@ejemplos-csv/cartones_ejemplo.csv"
 
-4. **Cargar datos de prueba**
-   ```bash
-   npm run prisma:seed
-   ```
+# 4. Listar cartones
+curl "http://localhost:3000/api/bingos/{bingoId}/cards?page=1&limit=10"
+```
 
-5. **Iniciar servidor**
-   ```bash
-   npm run start:dev
-   ```
+### Próxima Fase (FASE 3): Clientes, Reservas, Órdenes
 
-6. **Verificar que funciona**
-   ```bash
-   curl http://localhost:3000/api/health
-   ```
+Para continuar, implementar:
+
+1. Módulo Customers (CRUD)
+2. Módulo Reservations (crear, expiración)
+3. Módulo Orders (crear, transacciones)
+4. Validaciones de doble reserva con FOR UPDATE
+5. Transacciones SERIALIZABLE
 
 ---
 

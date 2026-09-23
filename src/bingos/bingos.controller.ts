@@ -7,12 +7,18 @@ import {
   Patch,
   Delete,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { BingosService } from './bingos.service';
 import { CreateBingoDto, UpdateBingoDto, PaginatedBingosDto, BingoResponseDto } from './dto/create-bingo.dto';
 import { CardsService } from '../cards/cards.service';
-import { PaginatedCardsDto } from '../cards/dto/card-response.dto';
+import { CardsImportService } from '../cards/csv-import.service';
+import { PaginatedCardsDto, CardResponseDto } from '../cards/dto/card-response.dto';
+import { CreateCardDto } from '../cards/dto/create-card.dto';
+import { ImportCardsResponseDto } from '../cards/dto/import-cards.dto';
 
 @Controller('bingos')
 @ApiTags('bingos')
@@ -20,6 +26,7 @@ export class BingosController {
   constructor(
     private readonly bingosService: BingosService,
     private readonly cardsService: CardsService,
+    private readonly cardsImportService: CardsImportService,
   ) {}
 
   @Post()
@@ -68,6 +75,21 @@ export class BingosController {
     );
   }
 
+  @Post(':bingoId/cards')
+  @ApiOperation({ summary: 'Crear un cartón en un bingo' })
+  @ApiResponse({ status: 201, description: 'Cartón creado exitosamente', type: CardResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'Bingo no encontrado' })
+  createCard(
+    @Param('bingoId') bingoId: string,
+    @Body() createCardDto: Omit<CreateCardDto, 'bingoId'>,
+  ) {
+    return this.cardsService.create({
+      ...createCardDto,
+      bingoId,
+    });
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un bingo por ID' })
   @ApiResponse({ status: 200, description: 'Bingo encontrado', type: BingoResponseDto })
@@ -90,5 +112,32 @@ export class BingosController {
   @ApiResponse({ status: 404, description: 'Bingo no encontrado' })
   delete(@Param('id') id: string) {
     return this.bingosService.delete(id);
+  }
+
+  @Post(':bingoId/cards/import')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Importar cartones desde CSV' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Archivo CSV con cartones (columnas: cardNumber, numbers)',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Cartones importados', type: ImportCardsResponseDto })
+  @ApiResponse({ status: 400, description: 'Archivo inválido o error en los datos' })
+  @ApiResponse({ status: 404, description: 'Bingo no encontrado' })
+  importCards(
+    @Param('bingoId') bingoId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.cardsImportService.importFromCsv(file, bingoId);
   }
 }

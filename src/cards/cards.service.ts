@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CardResponseDto,
   PaginatedCardsDto,
 } from './dto/card-response.dto';
+import { CreateCardDto, UpdateCardDto } from './dto/create-card.dto';
 
 @Injectable()
 export class CardsService {
@@ -119,5 +120,132 @@ export class CardsService {
       status: card.status,
       numbers: card.cardNumbers.map((cn: any) => cn.number),
     };
+  }
+
+  async create(createCardDto: CreateCardDto): Promise<CardResponseDto> {
+    // Verificar que el bingo existe
+    const bingo = await this.prisma.bingo.findUnique({
+      where: { id: createCardDto.bingoId },
+    });
+
+    if (!bingo) {
+      throw new NotFoundException(`Bingo con ID ${createCardDto.bingoId} no encontrado`);
+    }
+
+    // Verificar que no exista otro cartón con el mismo número en el mismo bingo
+    const existingCard = await this.prisma.bingoCard.findFirst({
+      where: {
+        bingoId: createCardDto.bingoId,
+        cardNumber: createCardDto.cardNumber,
+      },
+    });
+
+    if (existingCard) {
+      throw new BadRequestException(
+        `El cartón ${createCardDto.cardNumber} ya existe en este bingo`,
+      );
+    }
+
+    // Validar que no hay números duplicados
+    const uniqueNumbers = new Set(createCardDto.numbers);
+    if (uniqueNumbers.size !== createCardDto.numbers.length) {
+      throw new BadRequestException('El cartón no puede tener números duplicados');
+    }
+
+    // Crear cartón y sus números
+    const card = await this.prisma.bingoCard.create({
+      data: {
+        cardNumber: createCardDto.cardNumber,
+        bingoId: createCardDto.bingoId,
+        status: createCardDto.status || 'AVAILABLE',
+        cardNumbers: {
+          createMany: {
+            data: createCardDto.numbers.map((num) => ({
+              number: num,
+            })),
+          },
+        },
+      },
+      include: {
+        cardNumbers: {
+          orderBy: { number: 'asc' },
+        },
+      },
+    });
+
+    return this.mapToResponseDto(card);
+  }
+
+  async update(
+    id: string,
+    updateCardDto: UpdateCardDto,
+  ): Promise<CardResponseDto> {
+    // Verificar que el cartón existe
+    const existingCard = await this.findById(id);
+
+    // Si se intenta cambiar el cardNumber, verificar que no exista otro con ese número
+    if (updateCardDto.cardNumber && updateCardDto.cardNumber !== existingCard.cardNumber) {
+      const duplicateCard = await this.prisma.bingoCard.findFirst({
+        where: {
+          bingoId: (await this.prisma.bingoCard.findUnique({ where: { id } }))?.bingoId,
+          cardNumber: updateCardDto.cardNumber,
+        },
+      });
+
+      if (duplicateCard) {
+        throw new BadRequestException(
+          `El cartón ${updateCardDto.cardNumber} ya existe en este bingo`,
+        );
+      }
+    }
+
+    // Validar números si se proporcionan
+    if (updateCardDto.numbers) {
+      const uniqueNumbers = new Set(updateCardDto.numbers);
+      if (uniqueNumbers.size !== updateCardDto.numbers.length) {
+        throw new BadRequestException('El cartón no puede tener números duplicados');
+      }
+    }
+
+    // Actualizar cartón
+    const card = await this.prisma.bingoCard.update({
+      where: { id },
+      data: {
+        cardNumber: updateCardDto.cardNumber,
+        status: updateCardDto.status,
+      },
+      include: {
+        cardNumbers: {
+          orderBy: { number: 'asc' },
+        },
+      },
+    });
+
+    // Actualizar números si se proporcionan
+    if (updateCardDto.numbers) {
+      await this.prisma.cardNumber.deleteMany({
+        where: { cardId: id },
+      });
+
+      await this.prisma.cardNumber.createMany({
+        data: updateCardDto.numbers.map((num) => ({
+          cardId: id,
+          number: num,
+        })),
+      });
+
+      // Recargar con números actualizados
+      return this.findById(id);
+    }
+
+    return this.mapToResponseDto(card);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.findById(id); // Verificar que existe
+
+    await this.prisma.bingoCard.delete({
+      where: { id },
+    });
   }
 }
