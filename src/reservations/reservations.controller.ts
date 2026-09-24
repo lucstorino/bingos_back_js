@@ -15,7 +15,7 @@ import {
 } from './dto/create-reservation.dto';
 
 @ApiTags('Reservations')
-@Controller('api/reservations')
+@Controller('reservations')
 export class ReservationsController {
   constructor(private readonly reservationsService: ReservationsService) {}
 
